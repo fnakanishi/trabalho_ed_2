@@ -1,9 +1,9 @@
 # Trabalho final de DS141 - Estrutura de Dados II
 
 # Integrantes:
-   Carlos Felipe Godinho Silva\tGRR20184630\n
-   David Gomes de Carvalho         GRR20184616
-   Guilherme Alves da Silva        GRR20186254
+   &nbsp;&nbsp;GRR20184630&nbsp;&nbsp;&nbsp;&nbsp;Carlos Felipe Godinho Silva<br />
+   &nbsp;&nbsp;GRR20184616&nbsp;&nbsp;&nbsp;&nbsp;David Gomes de Carvalho<br />
+   &nbsp;&nbsp;GRR20186254&nbsp;&nbsp;&nbsp;&nbsp;Guilherme Alves da Silva<br />
 
 # Estratégia:
 
