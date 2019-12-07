@@ -76,12 +76,9 @@ int freq(){
 
 int main (int argc, char *argv[]) {
 
-   clock_t inicio, fim;
-   double duracao;
-   inicio = clock();
+   pthread_t *tid;
 
-
-   if (argc < 3) falha(-1);
+   if (argc < 4) falha(-1);
 
    if((arq = fopen(argv[3], "r")) != NULL) {
       fseek(arq, 0, SEEK_SET);
@@ -111,11 +108,84 @@ int main (int argc, char *argv[]) {
          int qtde = freqWord(word);
          printf("A palavra \"%s\" foi encontrada %d vezes no arquivo \"%s\".\n\n", argv[2], qtde, argv[3]);
       } else if (strcmp(argv[1], "--search") == 0) {
-         printf("Procura pelo termo \"%s\" nos arquivos \"%s\"", argv[2], argv[3]);
-         if (argc > 4)
-            for (int i = 4; i < argc; i++)
-               printf(", \"%s\"", argv[i]);
-         printf(".\n");
+         if (argc < 4) {
+            falha(-1);
+         } else if (argc == 4) {
+            printf("Arquivo mais relevante é: %s", argv[3]);
+         } else {
+            fclose(arq);
+            int num_threads = argc - 3;
+            int *num_palavras = (int *)malloc(num_threads * sizeof(int));
+            int qtde_pal = 0;
+            char word[100], **pal;
+            dados **param = (dados **)malloc(num_threads * sizeof(dados*));
+            tid = (pthread_t *)malloc(num_threads * sizeof(pthread_t));
+            for (int i = 0; i < num_threads; i++){
+               param[i] -> fp = fopen(argv[i+3], "r");
+               fseek(param[i] -> fp, 0, SEEK_SET);
+               param[i] -> num = i;
+               pthread_create(&tid[i], NULL, ler, &param[i]);
+            }
+            int tam = 0;
+            for (int i = 0; i < strlen(argv[2]); i++){
+               if (argv[2][i] > 0x60 && argv[2][i] < 0x7B) {
+                  word[1] = argv[2][i] - 0x20;
+                  tam++;
+               } else if ((argv[2][i] > 0x40 && argv[2][i] < 0x5B) || (argv[2][i] > 0x2F && argv[2][i] < 0x3A)) {
+                  word[1] = argv[2][i];
+                  tam++;
+               } else if(tam > 0) {
+                  strncpy(pal[qtde_pal], word, tam);
+                  qtde_pal++;
+                  tam = 0;
+               } else { tam = 0; }
+            }
+            for (int i = 0; i < num_threads; i++){
+               pthread_join(tid[i], NULL);
+               fseek(param[i] -> fp, 0, SEEK_SET);
+            }
+            int qtdeArq[100][100];
+            int num_docs[100];
+            for (int i = 0; i < 100; i++)
+               num_docs[i] = 0;
+            for (int j = 0; j < qtde_pal; j++){
+               for (int i = 0; i < num_threads; i++){
+                  param[i] -> word = pal[j];
+                  pthread_create(&tid[i], NULL, ler2, &param[i]);
+               }
+               for (int i = 0; i < num_threads; i++){
+                  pthread_join(tid[i], NULL);
+                  qtdeArq[j][i] = param[i] -> num;
+                  if (param[i] -> num > 0)
+                     num_docs[j]++;
+                  fseek(param[i] -> fp, 0, SEEK_SET);
+               }
+            }
+            int t, d;
+            double *tfidf = (double *)malloc(num_threads * sizeof(double));
+            double *media = (double *)malloc(qtde_pal * sizeof(double));
+            for (int j = 0; j < num_threads; j++){
+               fclose(param[j] -> fp);
+               media[j] = 0;
+               for (int i = 0; i < qtde_pal; i++){
+                  t = qtdeArq[i][j];
+                  d = num_docs[i];
+                  tfidf[i] = tf(t, num_palavras[num_threads]) * idf(num_threads,d);
+                  media[j] += tfidf[i];
+               }
+               media[j] = media[j] / qtde_pal;
+            }
+            double maiortfidf = 0;
+            int pos = -1;
+            for (int i = 0; i < num_threads; i++){
+               if (maiortfidf < media[i]) {
+                  maiortfidf = media[i];
+                  pos = i;
+               }
+            }
+            pos += 3;
+            printf("Arquivo mais relevante para o termo \"%s\" é: %s", argv[2], argv[pos]);
+         }
       } else {
          falha(0);
       }
@@ -123,16 +193,4 @@ int main (int argc, char *argv[]) {
          falha(-2);
    }
    fclose (arq);
-   fim = clock();
-   duracao = ((double) (fim - inicio)) / CLOCKS_PER_SEC;
-   int min, seg;
-   div_t tempo = div(duracao, 60);
-   min = tempo.quot;
-   seg = tempo.rem;
-
-
-   /*for (int i = 0; i < MAX_SIZE; i++){
-      inorder(hash[i]);
-   }*/
-   printf("\n\nDemorou aproximadamente %d minutos e %d segundos para executar\n", min, seg);
 }

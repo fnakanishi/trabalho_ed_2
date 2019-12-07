@@ -4,6 +4,8 @@
 #include <limits.h>
 #include <errno.h>
 #include <unistd.h>
+#include <math.h>
+#include <pthread.h>
 
 #define MAX_SIZE 20
 #define BUFFER_SIZE 200
@@ -14,12 +16,26 @@
 // gcc -c -I"~/DS141" lib.h    (Código pra incluir na biblioteca)
 
 typedef struct dados {
+  FILE *fp;
   char *word;
-  int tam;
-  int qtde;
+  int num;
 } dados;
 
+int *num_palavras;
+
 void falha(int erro);
+
+double tf(int t, int d){
+   if (d != 0)
+      return t/(double)d;
+   falha(-2);
+}
+
+double idf(int t, int d){
+   if (d != 0)
+      return log10(t/(double)d);
+   falha(-3);
+}
 
 void toUpperCase(char *word) {
    for(char *p = word; *p; ++p)
@@ -40,60 +56,21 @@ int isWord(char *string, char *word){
    return 1;
 }
 
-/*int compara(char *a, char *b) {
-   char *stra = strdup(a);
-   char *strb = strdup(b);
-   for(char *p = stra; *p; ++p)
-      *p = *p > 0x40 && *p < 0x5B ? *p | 0x60 : *p;
-   for(char *p = strb; *p; ++p)
-      *p = *p > 0x40 && *p < 0x5B ? *p | 0x60 : *p;
-   return (strcmp(stra, strb));
-}
-
-char *remPunct(char *str) {
-   char *dup = strdup(str);
-   if (strlen(dup) <= 0 || (strlen(dup) == 1 && dup[0] == '\n')) return NULL;
-   if ((dup[strlen(dup) - 1] > 0x20 && dup[strlen(dup) - 1] < 0x30 ) || (dup[strlen(dup) - 1] > 0x39 && dup[strlen(dup) - 1] < 0x41 ))
-      dup[strlen(dup) - 1] = '\0';
-   else if (dup[strlen(dup) - 1] == '\n') {
-      for (int i = strlen(dup); i >= 0; i--) {
-         if (dup[i] == '\n') {
-            dup[i] = '\0';
-         }
-         if (dup[i] == '\r')
-            dup[i] == '\0';
-      }
-   }
-   return dup;
-}
-
-char *clean(char *word){
-   int tam = strlen(word);
-   int i = 0, j = 0;
-   for (int i = 0; i < tam; i++){
-      if(word[strlen(word)] > 0x40 && word[strlen(word)] < 0x5B) {
-      int tam = strlen(word) - 1;
-      char *aux = (char *)malloc(sizeof(char *)  *(tam));
-      for (int i = 0; i < tam; i++) aux[i] = word[i];
-      return aux;
-      }
-   }
-   printf(":%s:\n", word);
-   return word;
-}*/
-
 void falha(int erro) {
    system("clear");
    printf("\n\n\t\t\tErro!");
    switch (erro){
+      case -3:
+         printf("\n\tArquivo sem palavras.\n");
+         break;
       case -2:
-         printf("\n\tArquivo não encontrado, verificar e tentar novamente.");
+         printf("\n\tArquivo não encontrado, verificar e tentar novamente.\n");
          break;
       case -1:
-         printf("\n\tParametros de entrada inválidos.");
+         printf("\n\tParametros de entrada inválidos.\n");
          break;
       case 0:
-         printf("\n\tFunção não disponível.");
+         printf("\n\tFunção não disponível.\n");
          break;
    }
    printf("\n\tEncerrando o programa...\n\n");
@@ -112,6 +89,45 @@ int convertNum(char *str) {
          num = conv;
          return num;
    }
+}
+
+void *ler(void *param){
+   dados *p = param;
+   int qtde = 0, tam = 0, num = p -> num;
+   FILE *fp = p -> fp;
+   char c;
+   while ((c = fgetc(fp)) != EOF) {
+      if ((c > 0x60 && c < 0x7B) || (c > 0x40 && c < 0x5B) || (c > 0x2F && c < 0x3A)) {
+         tam++;
+      } else if(tam > 0) {
+         qtde++;
+         tam = 0;
+      } else { tam = 0; }
+   }
+   num_palavras[num] = qtde;
+   pthread_exit(0);
+}
+
+
+
+void *ler2(void *param){
+   dados *p = param;
+   int qtde = 0;
+   FILE *fp = p -> fp;
+   char *word = p -> word;
+   char *trecho, linha[BUFFER_SIZE];
+   while ((fgets (linha , BUFFER_SIZE , fp) != NULL)) {
+      toUpperCase(linha);
+      trecho = strstr(linha, word);
+      while (trecho != NULL){
+         if (isWord(trecho, word) == 1)
+         qtde++;
+         trecho[0] = trecho[0]+1;
+         trecho = strstr(trecho, word);
+      }
+   }
+   p -> num = qtde;
+   pthread_exit(0);
 }
 
 void initFreq(char *qtde, char *arquivo) {
